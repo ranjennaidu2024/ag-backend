@@ -1,0 +1,38 @@
+spring:
+  profiles:
+    active: local
+  main:
+    web-application-type: reactive
+  data:
+    mongodb:
+      # Fail fast if MongoDB connection cannot be established
+      # Prevents fallback to default localhost connection
+      auto-index-creation: true
+      # UUID representation for MongoDB
+      uuid-representation: standard
+
+# GCP Secret Manager Configuration
+# Secrets are loaded programmatically via GcpSecretManagerConfig
+# Secret names follow pattern: webflux-mongodb-rest-{profile}
+# Example: webflux-mongodb-rest-dev, webflux-mongodb-rest-prod
+# All configuration values (including MongoDB URI) are loaded from GCP Secret Manager
+gcp:
+  secretmanager:
+    enabled: true  # Enabled for all non-local profiles
+    project-id: moonlit-botany-480813-p3
+
+server:
+  port: 8080
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    disable-swagger-default-url: true
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  show-actuator: false
+

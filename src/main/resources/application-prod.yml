@@ -1,0 +1,9 @@
+# Prod profile - GCP Secret Manager is enabled by default in application.yml
+# Secret name: webflux-mongodb-rest-prod
+
+# Enable debug logging for GCP Secret Manager
+logging:
+  level:
+    com.google.cloud.secretmanager: DEBUG
+    com.example.rewards.config.GcpSecretManagerConfig: DEBUG
+

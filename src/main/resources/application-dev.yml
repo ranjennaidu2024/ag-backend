@@ -1,0 +1,8 @@
+# Dev profile - GCP Secret Manager is enabled by default in application.yml
+# Secret name: webflux-mongodb-rest-dev
+
+# Enable debug logging for GCP Secret Manager (dev-specific)
+logging:
+  level:
+    com.google.cloud.secretmanager: DEBUG
+    com.example.rewards.config.GcpSecretManagerConfig: DEBUG

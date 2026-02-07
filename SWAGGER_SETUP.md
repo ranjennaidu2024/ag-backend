@@ -1,0 +1,205 @@
+# Swagger/OpenAPI Setup
+
+This document describes the Swagger UI configuration for the WebFlux MongoDB Rewards API.
+
+---
+
+## Overview
+
+The application uses **SpringDoc OpenAPI 3.0** to provide interactive API documentation via Swagger UI.
+
+**Access Points:**
+- **Swagger UI**: http://localhost:8080/swagger-ui.html
+- **OpenAPI JSON**: http://localhost:8080/v3/api-docs
+- **OpenAPI YAML**: http://localhost:8080/v3/api-docs.yaml
+
+---
+
+## Configuration
+
+### 1. Dependencies
+
+The project includes SpringDoc OpenAPI for WebFlux:
+
+```xml
+<dependency>
+    <groupId>org.springdoc</groupId>
+    <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
+    <version>2.6.0</version>
+</dependency>
+```
+
+### 2. Application Configuration (`application.yml`)
+
+```yaml
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    try-it-out-enabled: true
+    disable-swagger-default-url: true
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  show-actuator: false
+```
+
+**Configuration Details:**
+- `try-it-out-enabled: true` - Enables "Try it out" button for all endpoints
+- `operations-sorter: method` - Sorts operations by HTTP method
+- `tags-sorter: alpha` - Sorts tags alphabetically
+- `show-actuator: false` - Hides Spring Boot actuator endpoints
+
+### 3. OpenAPI Configuration (`OpenApiConfig.java`)
+
+Defines application-level metadata:
+
+- API title, version, and description
+- Contact information
+- License information (Apache 2.0)
+- Server configuration for localhost
+
+### 4. CORS Configuration (`WebConfig.java`)
+
+Enables CORS for all `/api/**` endpoints to allow Swagger UI to execute requests:
+
+- Allows all origins
+- Supports all HTTP methods (GET, POST, PUT, DELETE, OPTIONS)
+- Allows all headers
+
+### 5. API Documentation (`RewardRouter.java`)
+
+All endpoints are documented with:
+
+- `@RouterOperation` - Maps routes to handler methods
+- `@Operation` - Operation metadata (summary, description, tags)
+- `@Parameter` - Path parameter descriptions
+- `@RequestBody` - Request body schemas
+- `@ApiResponse` - Response codes and schemas
+
+### 6. Model Documentation (`Reward.java`)
+
+The Reward model includes:
+
+- `@Schema` annotations at class and field level
+- Field descriptions and examples
+- Required field indicators
+- Read-only field indicators (for `id`)
+
+---
+
+## API Endpoints
+
+All endpoints are documented in Swagger UI:
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/rewards` | List all rewards |
+| `GET` | `/api/rewards/{id}` | Get reward by ID |
+| `GET` | `/api/rewards/user/{userId}` | Get rewards for a user |
+| `POST` | `/api/rewards` | Create new reward |
+| `PUT` | `/api/rewards/{id}` | Update reward |
+| `DELETE` | `/api/rewards/{id}` | Delete reward |
+
+---
+
+## Using Swagger UI
+
+### 1. Start the Application
+
+```bash
+mvn spring-boot:run
+```
+
+### 2. Access Swagger UI
+
+Open your browser and navigate to:
+```
+http://localhost:8080/swagger-ui.html
+```
+
+### 3. Test an Endpoint
+
+1. Click on an endpoint (e.g., `POST /api/rewards`)
+2. Click **"Try it out"**
+3. Enter request body (for POST/PUT):
+   ```json
+   {
+     "userId": "user-123",
+     "points": 100,
+     "description": "Test reward"
+   }
+   ```
+4. Click **"Execute"**
+5. View the response below
+
+### 4. View Response Schemas
+
+- Click on any endpoint to see request/response schemas
+- View example values for each field
+- See validation rules (required fields, min/max values)
+
+---
+
+## Features
+
+✅ **Try it out** - Execute requests directly from the browser  
+✅ **Request examples** - Pre-filled example values  
+✅ **Response schemas** - Complete response documentation  
+✅ **Parameter descriptions** - Clear parameter documentation  
+✅ **Response codes** - Documented HTTP status codes  
+✅ **API metadata** - Title, version, description  
+✅ **CORS enabled** - No CORS errors when executing requests  
+✅ **Grouped by tags** - Endpoints organized by tags  
+
+---
+
+## Troubleshooting
+
+### Issue: "Try it out" button doesn't work
+
+**Solution:**
+- Ensure MongoDB is running (for local profile)
+- Check application logs for errors
+- Verify the endpoint is accessible
+
+### Issue: CORS errors in browser console
+
+**Solution:**
+- Verify `WebConfig.java` is present
+- Restart the application
+- Check CORS configuration in `WebConfig.java`
+
+### Issue: Swagger UI shows "Failed to fetch"
+
+**Solution:**
+- Verify application is running on port 8080
+- Check application logs for startup errors
+- Ensure MongoDB connection is successful
+
+### Issue: Request validation errors
+
+**Solution:**
+- Ensure `userId` is not blank
+- Ensure `points` is >= 0
+- Check request body format (must be valid JSON)
+
+---
+
+## Dependencies
+
+- **SpringDoc OpenAPI**: 2.6.0
+- **Spring Boot**: 3.4.1
+- **Spring WebFlux**: Reactive web framework
+- **OpenAPI Specification**: 3.0.1
+
+---
+
+## Additional Notes
+
+- All endpoints return JSON with `application/json` content type
+- Validation is performed on request bodies
+- The `id` field is read-only and generated by MongoDB
+- Error responses follow standard HTTP status codes
+- The API uses reactive programming with Project Reactor

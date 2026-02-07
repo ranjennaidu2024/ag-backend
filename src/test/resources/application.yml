@@ -1,0 +1,25 @@
+spring:
+  profiles:
+    active: test
+  main:
+    web-application-type: reactive
+  data:
+    mongodb:
+      # Use embedded MongoDB or test container for tests
+      # This configuration prevents actual MongoDB connection during unit tests
+      uri: mongodb://localhost:27017/testdb
+  autoconfigure:
+    exclude:
+      - org.springframework.boot.autoconfigure.mongo.MongoReactiveAutoConfiguration
+      - org.springframework.boot.autoconfigure.data.mongo.MongoReactiveDataAutoConfiguration
+
+# GCP Secret Manager Configuration - Disabled for tests
+gcp:
+  secretmanager:
+    enabled: false
+
+# Disable MongoDB connection validation for tests
+# Tests use mocked repositories, so actual MongoDB connection is not needed
+logging:
+  level:
+    com.example.rewards: DEBUG

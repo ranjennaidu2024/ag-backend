@@ -1,0 +1,43 @@
+# Compiled class files
+*.class
+target/
+
+# Log files
+*.log
+
+# Package Files
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# IDE specific files
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.settings/
+.classpath
+.project
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# GCP Service Account Keys
+**/gcp-key.json
+**/rewards-app-key.json
+**/*-key.json
+*.json.key
+
+# Environment variables
+.env
+.env.local
+
+# Maven
+.mvn/
+mvnw
+mvnw.cmd

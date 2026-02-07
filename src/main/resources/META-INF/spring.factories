@@ -1,0 +1,3 @@
+org.springframework.context.ApplicationListener=\
+com.example.rewards.config.GcpSecretManagerConfig
+
