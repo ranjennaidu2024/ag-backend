@@ -34,5 +34,11 @@ springdoc:
   api-docs:
     path: /v3/api-docs
     enabled: true
-  show-actuator: false
+  show-actuator: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
 
