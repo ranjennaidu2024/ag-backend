@@ -903,3 +903,5 @@ You can use this file directly in Cloud Build triggers, or use the inline YAML c
 See [SWAGGER_SETUP.md](SWAGGER_SETUP.md) for detailed Swagger/OpenAPI configuration information.
 
 ```
+
+IMPORTANT NOTE: ALWAYS MAKE SURE LATEST CONTAINER IMAGE IS SELECTED WHEN DEPLOY VIA CLOUD RUN
