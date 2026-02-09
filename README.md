@@ -391,9 +391,393 @@ src/main/java/com/example/rewards/
 
 ---
 
+## Deploying to Google Cloud Platform (GCP)
+
+This guide will walk you through deploying the backend application to Google Cloud Platform using **Cloud Run** via the GCP Console UI only (no CLI required).
+
+### Prerequisites
+
+1. A Google Cloud Platform account ([Sign up here](https://cloud.google.com/) if you don't have one)
+2. A GCP project created (or you'll create one during deployment)
+3. A credit card (GCP offers free credits for new users)
+4. MongoDB Atlas account (for cloud MongoDB) or MongoDB instance accessible from GCP
+5. Your GCP Project ID (you'll need this for configuration)
+
+### Step-by-Step Deployment Guide
+
+#### Step 1: Create a GCP Project (if not already created)
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Click on the project dropdown at the top of the page (next to "Google Cloud")
+3. Click **"NEW PROJECT"**
+4. Enter a project name (e.g., `antigravity-backend`)
+5. Click **"CREATE"**
+6. Wait for the project to be created, then select it from the project dropdown
+7. **Note your Project ID** (displayed in the project dropdown) - you'll need this later
+
+#### Step 2: Enable Required APIs
+
+1. In the GCP Console, click the **☰ (hamburger menu)** in the top left
+2. Navigate to **"APIs & Services"** > **"Library"**
+3. Enable the following APIs (search for each and click **"ENABLE"**):
+   - **Cloud Run API**
+   - **Cloud Build API**
+   - **Container Registry API**
+   - **Secret Manager API** (required for configuration)
+   - **Artifact Registry API** (if using Artifact Registry)
+
+#### Step 3: Set Up MongoDB (MongoDB Atlas Recommended)
+
+**Option A: MongoDB Atlas (Recommended for Production)**
+
+1. Go to [MongoDB Atlas](https://www.mongodb.com/cloud/atlas)
+2. Sign up or log in
+3. Create a new cluster (free tier available)
+4. Create a database user:
+   - Go to **"Database Access"** > **"Add New Database User"**
+   - Choose **"Password"** authentication
+   - Create username and password (save these securely)
+   - Set privileges to **"Atlas admin"** or **"Read and write to any database"**
+5. Configure network access:
+   - Go to **"Network Access"** > **"Add IP Address"**
+   - Click **"Allow Access from Anywhere"** (or add specific GCP IP ranges)
+   - Click **"Confirm"**
+6. Get your connection string:
+   - Go to **"Database"** > Click **"Connect"** on your cluster
+   - Choose **"Connect your application"**
+   - Copy the connection string (format: `mongodb+srv://username:password@cluster.mongodb.net/dbname?retryWrites=true&w=majority`)
+   - **Save this connection string** - you'll need it for Secret Manager
+
+**Option B: Use Existing MongoDB Instance**
+
+- Ensure your MongoDB instance is accessible from GCP Cloud Run
+- Note the connection string format: `mongodb://host:port/database` or `mongodb+srv://...`
+
+#### Step 4: Create GCP Secret Manager Secret
+
+The application uses GCP Secret Manager to store configuration. You need to create a secret for the production profile.
+
+1. In GCP Console, navigate to **"Security"** > **"Secret Manager"**
+2. Click **"+ CREATE SECRET"**
+3. Configure the secret:
+   - **Name**: `webflux-mongodb-rest-prod` (must match exactly: `webflux-mongodb-rest-{profile}`)
+   - **Secret value**: Paste your configuration in properties format (see example below)
+   - **Regions**: Leave as "Automatic" (default)
+
+4. **Example Secret Value (Properties Format):**
+   ```properties
+   spring.data.mongodb.uri=mongodb+srv://username:password@cluster.mongodb.net/rewardsdb?retryWrites=true&w=majority
+   app.environment=production
+   app.name=antigravity-backend-prod
+   logging.level.com.example.rewards=INFO
+   ```
+   
+   **Important:** Replace:
+   - `username:password` → Your MongoDB Atlas credentials
+   - `cluster.mongodb.net` → Your MongoDB Atlas cluster URL
+   - `rewardsdb` → Your database name
+
+5. Click **"CREATE SECRET"**
+
+#### Step 5: Update Project ID in Configuration
+
+Before deploying, you need to update the GCP project ID in your configuration:
+
+1. Open `src/main/resources/application.yml`
+2. Find the `gcp.secretmanager.project-id` property
+3. Replace `moonlit-botany-480813-p3` (or the existing value) with your actual GCP project ID
+4. Save the file
+
+**Example:**
+```yaml
+gcp:
+  secretmanager:
+    enabled: true
+    project-id: your-actual-project-id  # Replace this
+```
+
+**Note:** You can also set this via environment variable `GCP_SECRETMANAGER_PROJECT_ID` in Cloud Run, but updating the file is simpler and ensures consistency.
+
+#### Step 6: Prepare Your Code for Upload
+
+You have two options:
+
+**Option A: Upload via Cloud Source Repositories (Recommended)**
+1. In GCP Console, click **☰** menu > **"Source Repositories"**
+2. Click **"CREATE REPOSITORY"**
+3. Select **"Create new repository"**
+4. Name it `antigravity-backend` and click **"CREATE"**
+5. Follow the instructions to push your code (you can use the provided git commands, or upload manually via the web interface)
+
+**Option B: Connect GitHub Repository**
+1. In GCP Console, go to **"Cloud Build"** > **"Triggers"**
+2. When creating a trigger, you can connect your GitHub account
+3. Select your repository and branch
+
+#### Step 7: Create a Cloud Build Trigger
+
+**Important:** This step uses an **Inline YAML configuration** instead of the "Dockerfile" option to avoid UI bugs and properly handle logging requirements.
+
+1. In GCP Console, click **☰** menu > **"Cloud Build"** > **"Triggers"**
+2. Click **"CREATE TRIGGER"**
+3. Configure the trigger:
+   - **Name**: `antigravity-backend-build`
+   - **Event**: Select **"Push to a branch"**
+   - **Source**: 
+     - If using Source Repositories: Select your repository
+     - If using GitHub: Connect your GitHub account and select the repository
+   - **Branch**: `^main$` (or your main branch name, e.g., `^master$`)
+   
+4. **Configuration Settings (Critical):**
+   - **Configuration**: Select **"Cloud Build configuration file (yaml or json)"** (NOT "Dockerfile")
+   - **Location**: Select **"Inline"** (this allows you to paste the YAML directly)
+   - **Cloud Build configuration file contents**: Paste the following YAML:
+   
+   ```yaml
+   steps:
+     # Build the image using the project ID variable
+     - name: 'gcr.io/cloud-builders/docker'
+       args: [
+         'build', 
+         '-t', 'gcr.io/$PROJECT_ID/backend:$COMMIT_SHA', 
+         '.'
+       ]
+   
+     # Push the image to the registry
+     - name: 'gcr.io/cloud-builders/docker'
+       args: ['push', 'gcr.io/$PROJECT_ID/backend:$COMMIT_SHA']
+   
+   options:
+     # This line solved the "Failed to trigger build" error
+     logging: CLOUD_LOGGING_ONLY
+   ```
+
+5. **Service Account Configuration (if using custom service account):**
+   - Scroll down to **"Advanced"** section
+   - If you're using a custom service account, you'll need to grant it proper permissions (see Step 6a below)
+   - If using default service account, you can skip to Step 7
+
+6. Click **"CREATE"**
+
+#### Step 7a: Configure Service Account Permissions (Required if using custom service account)
+
+If you're using a custom service account for Cloud Build, you need to grant it the following IAM roles:
+
+1. Go to **"IAM & Admin"** > **"IAM"** in GCP Console
+2. Find your service account (or the Cloud Build service account)
+3. Click the **✏️ (edit/pencil icon)** next to the service account
+4. Click **"ADD ANOTHER ROLE"** and add these roles:
+   - **Logs Writer** (`roles/logging.logWriter`) - To send logs to Cloud Logging
+   - **Artifact Registry Writer** (`roles/artifactregistry.writer`) - To upload the image
+   - **Artifact Registry Create-on-push Writer** (`roles/artifactregistry.createOnPushWriter`) - To allow automatic creation of the "backend" repository during first push
+   - **Secret Manager Secret Accessor** (`roles/secretmanager.secretAccessor`) - To read secrets from Secret Manager (required for the application to run)
+5. Click **"SAVE"**
+
+**Note:** If you're using the default compute service account, these permissions are usually already configured. The custom service account approach gives you more control but requires manual permission setup.
+
+#### Step 8: Build Your Container Image
+
+**If using Source Repositories:**
+1. Push your code to the repository (or use the web interface to upload files)
+2. Go to **"Cloud Build"** > **"History"**
+3. Your build should start automatically
+4. Wait for the build to complete (you'll see a green checkmark when done)
+
+**If using GitHub:**
+1. Push your code to the connected GitHub repository
+2. Go to **"Cloud Build"** > **"History"**
+3. Your build should start automatically
+4. Wait for the build to complete
+
+**If uploading manually:**
+1. Go to **"Cloud Build"** > **"History"**
+2. Click **"RUN TRIGGER"** or **"RUN"** button
+3. Select your trigger
+4. Click **"RUN"**
+5. Wait for the build to complete
+
+#### Step 9: Deploy to Cloud Run
+
+1. In GCP Console, click **☰** menu > **"Cloud Run"**
+2. Click **"CREATE SERVICE"**
+3. Configure your service:
+
+   **Service Settings:**
+   - **Service name**: `antigravity-backend`
+   - **Region**: Choose a region close to your users (e.g., `us-central1`, `us-east1`, `europe-west1`)
+   - **Deploy one revision from an existing container image**: Click **"SELECT"**
+   - **Container image URL**: Click **"SELECT"** and choose the image you just built (it should be named something like `gcr.io/YOUR-PROJECT-ID/backend:COMMIT_SHA`)
+     - **Note:** The image name format is `gcr.io/YOUR-PROJECT-ID/backend:COMMIT_SHA` based on the Cloud Build configuration
+     - You can select any commit SHA tag, or use the latest build
+   - **Container port**: `8080`
+   - **CPU allocation**: Select **"CPU is only allocated during request processing"** (to save costs)
+   - **Memory**: `512 MiB` (minimum, increase to `1 GiB` or `2 GiB` if needed for MongoDB operations)
+   - **Minimum number of instances**: `0` (to allow scaling to zero)
+   - **Maximum number of instances**: `10` (adjust as needed)
+   - **Concurrency**: `80` (default)
+   - **Request timeout**: `300` seconds
+
+   **Container Settings:**
+   - Click **"Container"** tab
+   - **Environment variables**: Add the following:
+     - `SPRING_PROFILES_ACTIVE` = `prod`
+     - `GCP_SECRETMANAGER_PROJECT_ID` = `YOUR-PROJECT-ID` (replace with your actual GCP project ID)
+       - **Note:** This overrides the `gcp.secretmanager.project-id` value in `application.yml`
+       - **Alternative:** You can also update `application.yml` directly with your project ID before building
+   - **Port**: `8080`
+
+   **Security:**
+   - **Authentication**: Select **"Allow unauthenticated invocations"** (to make it publicly accessible)
+   - **Service account**: Select the service account that has **"Secret Manager Secret Accessor"** role (or use default compute service account)
+
+4. Click **"CREATE"** or **"DEPLOY"**
+5. Wait for the deployment to complete (this may take a few minutes)
+
+#### Step 10: Grant Cloud Run Service Account Access to Secret Manager
+
+The Cloud Run service needs permission to read secrets from Secret Manager:
+
+1. Go to **"IAM & Admin"** > **"IAM"** in GCP Console
+2. Find the Cloud Run service account (format: `PROJECT_NUMBER-compute@developer.gserviceaccount.com`)
+   - You can find your PROJECT_NUMBER in **"IAM & Admin"** > **"Settings"**
+3. Click the **✏️ (edit/pencil icon)** next to the service account
+4. Click **"ADD ANOTHER ROLE"**
+5. Add role: **Secret Manager Secret Accessor** (`roles/secretmanager.secretAccessor`)
+6. Click **"SAVE"**
+
+#### Step 11: Access Your Deployed Application
+
+1. Once deployment is complete, you'll see your service in the Cloud Run dashboard
+2. Click on your service name (`antigravity-backend`)
+3. You'll see a **URL** at the top of the page (e.g., `https://antigravity-backend-xxxxx-uc.a.run.app`)
+4. Test your endpoints:
+   - **Health Check**: `https://your-service-url/actuator/health`
+   - **Swagger UI**: `https://your-service-url/swagger-ui.html`
+   - **API Base**: `https://your-service-url/api/projects`
+5. Your application is now publicly accessible!
+
+### Managing Your Deployment
+
+#### Viewing Logs
+1. Go to **"Cloud Run"** > Select your service
+2. Click on **"LOGS"** tab to view application logs
+3. You can filter and search logs here
+4. Logs will show Secret Manager loading, MongoDB connections, and API requests
+
+#### Updating Your Application
+1. Make changes to your code
+2. Push to your repository (or upload new files)
+3. Cloud Build will automatically trigger (if configured) or manually run the build
+4. Once the new image is built, go to **"Cloud Run"** > Your service > **"EDIT & DEPLOY NEW REVISION"**
+5. Select the new container image
+6. Click **"DEPLOY"**
+
+#### Updating Secrets
+1. Go to **"Secret Manager"** > Select your secret (`webflux-mongodb-rest-prod`)
+2. Click **"ADD NEW VERSION"**
+3. Enter the new secret value
+4. Click **"ADD VERSION"**
+5. The application will automatically use the latest version on next request (or restart the Cloud Run service to force reload)
+
+#### Setting Custom Domain (Optional)
+1. Go to **"Cloud Run"** > Your service > **"MANAGE CUSTOM DOMAINS"**
+2. Click **"ADD MAPPING"**
+3. Follow the instructions to verify domain ownership
+4. Configure DNS settings as instructed
+
+### Cost Considerations
+
+- **Cloud Run** charges based on:
+  - CPU and memory usage during request processing
+  - Number of requests
+  - Network egress
+- With the configuration above (scaling to zero), you'll only pay when your app receives traffic
+- GCP offers a **Free Tier** with generous limits for Cloud Run
+- **MongoDB Atlas** offers a free tier (M0 cluster) for development
+- Estimated cost for low-traffic sites: **$0-10/month** (often free within free tier limits)
+
+### Troubleshooting
+
+#### Build Fails
+- Check **"Cloud Build"** > **"History"** for error details
+- Ensure `Dockerfile` is in the root of your project
+- Verify `pom.xml` has all required dependencies
+- Check that Java 21 is specified in Dockerfile
+
+#### Application Not Starting
+- Check **"Cloud Run"** > **"LOGS"** for error messages
+- Verify environment variables are set correctly:
+  - `SPRING_PROFILES_ACTIVE=prod`
+  - `GCP_SECRETMANAGER_PROJECT_ID` matches your project ID (or check `application.yml` has correct `gcp.secretmanager.project-id`)
+- Ensure the Cloud Run service account has **Secret Manager Secret Accessor** role
+- Verify the secret `webflux-mongodb-rest-prod` exists in Secret Manager
+
+#### Can't Connect to MongoDB
+- Check **"Cloud Run"** > **"LOGS"** for MongoDB connection errors
+- Verify MongoDB Atlas network access allows connections from GCP (or "Allow from anywhere")
+- Ensure the MongoDB URI in Secret Manager is correct
+- Test MongoDB connection string manually from your local machine
+- Verify MongoDB credentials are correct in the secret
+
+#### Secret Manager Errors
+- Verify secret exists: `webflux-mongodb-rest-prod`
+- Check Cloud Run service account has `roles/secretmanager.secretAccessor` role
+- Ensure Secret Manager API is enabled
+- Verify project ID in environment variables matches your GCP project
+- Check logs for specific Secret Manager error messages
+
+#### Application Not Accessible
+- Check that **"Allow unauthenticated invocations"** is enabled
+- Verify the service is deployed and running (green status)
+- Check the **"LOGS"** tab for runtime errors
+- Verify the health endpoint: `/actuator/health`
+
+#### Container Image Not Found
+- Ensure Cloud Build completed successfully
+- Check **"Container Registry"** > **"Images"** to verify image exists
+- Verify you're selecting the correct image in Cloud Run deployment
+- Image should be named: `gcr.io/YOUR-PROJECT-ID/backend:COMMIT_SHA`
+
+#### Cloud Build Trigger Error: "Failed to trigger build: if 'build.service_account' is specified..."
+
+This error occurs when a service account is specified but logging configuration is missing. The recommended solution is to use the **Inline YAML configuration** approach described in Step 6.
+
+**Solution 1: Use Inline YAML Configuration (Recommended - Works Every Time)**
+1. Go to **"Cloud Build"** > **"Triggers"**
+2. Click on your trigger name (`antigravity-backend-build`)
+3. Click **"EDIT"** button
+4. Change **"Configuration"** from **"Dockerfile"** to **"Cloud Build configuration file (yaml or json)"**
+5. Set **"Location"** to **"Inline"**
+6. Paste the YAML configuration from Step 6 (with `logging: CLOUD_LOGGING_ONLY` in options)
+7. Click **"SAVE"**
+
+**Solution 2: Fix Service Account Permissions**
+If you're still getting "Denied" or "Repo Not Found" errors:
+1. Follow **Step 7a** above to grant proper IAM roles to your service account
+2. Ensure these roles are added:
+   - `roles/logging.logWriter`
+   - `roles/artifactregistry.writer`
+   - `roles/artifactregistry.createOnPushWriter`
+   - `roles/secretmanager.secretAccessor`
+
+**Why Inline YAML Works Better:**
+- The "Dockerfile" configuration option sometimes hides logging settings in the UI
+- Inline YAML gives you full control over all build options
+- The `logging: CLOUD_LOGGING_ONLY` option in YAML explicitly satisfies the logging requirement
+
+### Cloud Build Configuration File
+
+This project includes a `cloudbuild.yaml` file that can be used for Cloud Build deployments. The file is configured to:
+- Build the Docker image using the project ID and commit SHA as tags
+- Push the image to Google Container Registry (GCR)
+- Use Cloud Logging only (no custom logs bucket required)
+
+You can use this file directly in Cloud Build triggers, or use the inline YAML configuration as described in the deployment steps above.
+
+---
+
 ## Additional Documentation
 
 See [SWAGGER_SETUP.md](SWAGGER_SETUP.md) for detailed Swagger/OpenAPI configuration information.
 
-
-test3
+```
