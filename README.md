@@ -638,7 +638,27 @@ If you're using a custom service account for Cloud Build, you need to grant it t
 
 #### Step 10: Configure Swagger Server URL (Important for Swagger UI)
 
-After deploying, you need to set the server URL so Swagger UI uses the correct Cloud Run URL instead of localhost:
+**IMPORTANT:** You need to rebuild and redeploy the backend with the updated code first, then set the environment variable.
+
+**Step 10a: Rebuild Backend with Updated Code**
+
+The `OpenApiConfig.java` has been updated to support dynamic server URLs. You need to rebuild:
+
+1. **Push the updated code** to your repository (the updated `OpenApiConfig.java` file)
+2. **Trigger a new build:**
+   - Go to **"Cloud Build"** > **"History"**
+   - Click **"RUN TRIGGER"** (or push a commit to trigger automatic build)
+   - Select your backend trigger
+   - Wait for build to complete
+3. **Redeploy with new image:**
+   - Go to **"Cloud Run"** > Your backend service
+   - Click **"EDIT & DEPLOY NEW REVISION"**
+   - Select the newly built image
+   - Click **"DEPLOY"**
+
+**Step 10b: Set Environment Variable**
+
+After redeploying with the updated code, set the server URL:
 
 1. Go to **"Cloud Run"** > Select your backend service
 2. Click **"EDIT & DEPLOY NEW REVISION"**
@@ -653,7 +673,11 @@ After deploying, you need to set the server URL so Swagger UI uses the correct C
 6. After deployment, Swagger UI will show your Cloud Run URL in the server dropdown
 
 **Alternative: Set via Secret Manager**
-You can also add `app.server.url=https://your-backend-url` to your GCP Secret Manager secret (`webflux-mongodb-rest-prod`), and it will be loaded automatically.
+You can also add `app.server.url=https://your-backend-url` to your GCP Secret Manager secret (`webflux-mongodb-rest-prod`), and it will be loaded automatically. Then restart the Cloud Run service.
+
+**Verify it's working:**
+- Check Cloud Run logs - you should see: `OpenAPI Config - Server URL from config: https://your-url`
+- Open Swagger UI - the server dropdown should show your Cloud Run URL first
 
 #### Step 11: Grant Cloud Run Service Account Access to Secret Manager
 
@@ -776,22 +800,39 @@ Swagger UI provides an interactive interface to test your API endpoints directly
 - Verify the secret `webflux-mongodb-rest-prod` exists in Secret Manager
 
 #### Swagger UI Still Shows localhost:8080
-- **Check environment variable:**
+
+**CRITICAL:** Make sure you've rebuilt and redeployed with the updated `OpenApiConfig.java` code first!
+
+- **Step 1: Verify code is updated**
+  1. Check that `OpenApiConfig.java` has the updated code (should read `APP_SERVER_URL` environment variable)
+  2. If not, push the updated code and rebuild (see Step 10a above)
+
+- **Step 2: Check environment variable:**
   1. Go to **"Cloud Run"** > Your backend service > **"EDIT & DEPLOY NEW REVISION"**
   2. Check **"Environment variables"** section
   3. Ensure `APP_SERVER_URL` is set to your Cloud Run URL (e.g., `https://antigravity-backend-xxxxx-uc.a.run.app`)
   4. **Important:** Use `https://` protocol and don't include `/api` or trailing slashes
   5. Click **"DEPLOY"** to apply changes
 
-- **Verify in Swagger UI:**
+- **Step 3: Check logs:**
+  1. Go to **"Cloud Run"** > Your backend service > **"LOGS"** tab
+  2. Look for log lines starting with `OpenAPI Config -`
+  3. You should see: `OpenAPI Config - Server URL from config: https://your-url`
+  4. If it shows empty or localhost, the environment variable isn't being read
+
+- **Step 4: Verify in Swagger UI:**
   - Open Swagger UI: `https://your-backend-url/swagger-ui.html`
   - Look at the **server dropdown** at the top of the page
-  - It should show your Cloud Run URL, not `localhost:8080`
-  - If it still shows localhost, the environment variable wasn't set correctly
+  - It should show your Cloud Run URL first, then localhost
+  - If it still shows only localhost:
+    - Check logs (Step 3) to see what URL was detected
+    - Verify environment variable is set correctly (Step 2)
+    - Make sure you rebuilt with the updated code (Step 1)
 
 - **Alternative: Set via Secret Manager**
-  - Add `app.server.url=https://your-backend-url` to your Secret Manager secret
+  - Add `app.server.url=https://your-backend-url` to your Secret Manager secret (`webflux-mongodb-rest-prod`)
   - Restart the Cloud Run service to reload secrets
+  - Check logs to verify it's being read
 
 #### Can't Connect to MongoDB
 - Check **"Cloud Run"** > **"LOGS"** for MongoDB connection errors
