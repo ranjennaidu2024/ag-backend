@@ -5,16 +5,38 @@ import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
 import io.swagger.v3.oas.models.servers.Server;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @Configuration
 public class OpenApiConfig {
 
+  @Value("${server.port:8080}")
+  private String serverPort;
+
+  @Value("${app.server.url:}")
+  private String serverUrl;
+
   @Bean
   public OpenAPI customOpenAPI() {
+    List<Server> servers = new ArrayList<>();
+    
+    // If server URL is explicitly configured (e.g., via environment variable or Secret Manager)
+    if (serverUrl != null && !serverUrl.isEmpty() && !serverUrl.equals("http://localhost:8080")) {
+      servers.add(new Server()
+        .url(serverUrl)
+        .description("Production server"));
+    }
+    
+    // Always add localhost for local development
+    servers.add(new Server()
+      .url("http://localhost:" + serverPort)
+      .description("Local development server"));
+    
     return new OpenAPI()
       .info(new Info()
         .title("Rewards API")
@@ -29,10 +51,6 @@ public class OpenApiConfig {
         .license(new License()
           .name("Apache 2.0")
           .url("https://www.apache.org/licenses/LICENSE-2.0.html")))
-      .servers(List.of(
-        new Server()
-          .url("http://localhost:8080")
-          .description("Development server")
-      ));
+      .servers(servers);
   }
 }

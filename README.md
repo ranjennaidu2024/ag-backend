@@ -291,11 +291,14 @@ spring.data.mongodb.uri=mongodb+srv://produser:password@prod-cluster.mongodb.net
 app.environment=production
 app.name=rewards-api-prod
 app.version=1.0.0
+app.server.url=https://antigravity-backend-xxxxx-uc.a.run.app
 api.external.url=https://api.example.com
 api.external.key=prod-SECURE-API-KEY
 logging.level.com.example.rewards=WARN
 spring.data.mongodb.auto-index-creation=false
 ```
+
+**Note:** `app.server.url` is used by Swagger UI to generate correct API request URLs. Replace with your actual Cloud Run service URL.
 
 **Replace:**
 - `username/password` → Your actual MongoDB credentials
@@ -633,7 +636,26 @@ If you're using a custom service account for Cloud Build, you need to grant it t
 4. Click **"CREATE"** or **"DEPLOY"**
 5. Wait for the deployment to complete (this may take a few minutes)
 
-#### Step 10: Grant Cloud Run Service Account Access to Secret Manager
+#### Step 10: Configure Swagger Server URL (Important for Swagger UI)
+
+After deploying, you need to set the server URL so Swagger UI uses the correct Cloud Run URL instead of localhost:
+
+1. Go to **"Cloud Run"** > Select your backend service
+2. Click **"EDIT & DEPLOY NEW REVISION"**
+3. Scroll to **"Container"** section → **"Environment variables"**
+4. Add or update:
+   - **Name**: `APP_SERVER_URL`
+   - **Value**: `https://your-backend-cloud-run-url`
+     - Replace with your actual Cloud Run service URL (the one shown at the top of the service page)
+     - Example: `https://antigravity-backend-xxxxx-uc.a.run.app`
+     - **Important:** Use `https://` and don't include `/api` or trailing slashes
+5. Click **"DEPLOY"** to apply the changes
+6. After deployment, Swagger UI will show your Cloud Run URL in the server dropdown
+
+**Alternative: Set via Secret Manager**
+You can also add `app.server.url=https://your-backend-url` to your GCP Secret Manager secret (`webflux-mongodb-rest-prod`), and it will be loaded automatically.
+
+#### Step 11: Grant Cloud Run Service Account Access to Secret Manager
 
 The Cloud Run service needs permission to read secrets from Secret Manager:
 
@@ -645,7 +667,7 @@ The Cloud Run service needs permission to read secrets from Secret Manager:
 5. Add role: **Secret Manager Secret Accessor** (`roles/secretmanager.secretAccessor`)
 6. Click **"SAVE"**
 
-#### Step 11: Access Your Deployed Application
+#### Step 12: Access Your Deployed Application
 
 1. Once deployment is complete, you'll see your service in the Cloud Run dashboard
 2. Click on your service name (`antigravity-backend`)
@@ -656,14 +678,16 @@ The Cloud Run service needs permission to read secrets from Secret Manager:
    - **API Base**: `https://your-service-url/api/projects`
 5. Your application is now publicly accessible!
 
-#### Step 12: Testing Swagger UI
+#### Step 13: Testing Swagger UI
 
 Swagger UI provides an interactive interface to test your API endpoints directly from the browser. Here's how to access and use it:
 
 **1. Access Swagger UI:**
-   - Open your browser and navigate to: `https://your-service-url/webjars/swagger-ui/index.html`
-   - Example: `https://antigravity-backend-xxxxx-uc.a.run.app/webjars/swagger-ui/index.html`
+   - Open your browser and navigate to: `https://your-service-url/swagger-ui.html`
+   - Example: `https://antigravity-backend-xxxxx-uc.a.run.app/swagger-ui.html`
    - You should see the Swagger UI interface with all available API endpoints
+   - **Check the server dropdown** at the top - it should show your Cloud Run URL, not `localhost:8080`
+   - If you see `localhost:8080`, make sure `APP_SERVER_URL` environment variable is set (see Step 10)
 
 **2. Verify Swagger UI is Loading:**
    - If you see a page with API documentation, Swagger UI is working correctly
@@ -750,6 +774,24 @@ Swagger UI provides an interactive interface to test your API endpoints directly
   - `GCP_SECRETMANAGER_PROJECT_ID` matches your project ID (or check `application.yml` has correct `gcp.secretmanager.project-id`)
 - Ensure the Cloud Run service account has **Secret Manager Secret Accessor** role
 - Verify the secret `webflux-mongodb-rest-prod` exists in Secret Manager
+
+#### Swagger UI Still Shows localhost:8080
+- **Check environment variable:**
+  1. Go to **"Cloud Run"** > Your backend service > **"EDIT & DEPLOY NEW REVISION"**
+  2. Check **"Environment variables"** section
+  3. Ensure `APP_SERVER_URL` is set to your Cloud Run URL (e.g., `https://antigravity-backend-xxxxx-uc.a.run.app`)
+  4. **Important:** Use `https://` protocol and don't include `/api` or trailing slashes
+  5. Click **"DEPLOY"** to apply changes
+
+- **Verify in Swagger UI:**
+  - Open Swagger UI: `https://your-backend-url/swagger-ui.html`
+  - Look at the **server dropdown** at the top of the page
+  - It should show your Cloud Run URL, not `localhost:8080`
+  - If it still shows localhost, the environment variable wasn't set correctly
+
+- **Alternative: Set via Secret Manager**
+  - Add `app.server.url=https://your-backend-url` to your Secret Manager secret
+  - Restart the Cloud Run service to reload secrets
 
 #### Can't Connect to MongoDB
 - Check **"Cloud Run"** > **"LOGS"** for MongoDB connection errors
