@@ -656,6 +656,45 @@ The Cloud Run service needs permission to read secrets from Secret Manager:
    - **API Base**: `https://your-service-url/api/projects`
 5. Your application is now publicly accessible!
 
+#### Step 12: Testing Swagger UI
+
+Swagger UI provides an interactive interface to test your API endpoints directly from the browser. Here's how to access and use it:
+
+**1. Access Swagger UI:**
+   - Open your browser and navigate to: `https://your-service-url/webjars/swagger-ui/index.html`
+   - Example: `https://antigravity-backend-xxxxx-uc.a.run.app/webjars/swagger-ui/index.html`
+   - You should see the Swagger UI interface with all available API endpoints
+
+**2. Verify Swagger UI is Loading:**
+   - If you see a page with API documentation, Swagger UI is working correctly
+   - The page should display:
+     - API title and description
+     - List of available endpoints grouped by tags
+     - Request/response schemas
+     - "Try it out" buttons for each endpoint
+
+**3. Test API Endpoints:**
+
+   The application provides the following endpoints that you can test in Swagger UI:
+
+   **Available Endpoints:**
+   - `GET /api/projects` - Get all projects
+   - `GET /api/projects/{id}` - Get project by ID
+   - `POST /api/projects` - Create a new project
+   - `PUT /api/projects/{id}` - Update a project
+   - `DELETE /api/projects/{id}` - Delete a project
+   - `GET /actuator/health` - Health check endpoint
+
+   **Example 1: Test GET /api/projects (Get All Projects)**
+   1. In Swagger UI, find the **"Projects"** section
+   2. Expand the **GET /api/projects** endpoint
+   3. Click the **"Try it out"** button
+   4. Click **"Execute"** button
+   5. Review the response:
+      - **Response Code**: Should be `200` for successful requests
+      - **Response Body**: Should show JSON array with project information
+      - **Response Headers**: Shows content-type (`application/json`) and other headers
+
 ### Managing Your Deployment
 
 #### Viewing Logs
