@@ -130,6 +130,26 @@ This document describes the upgrade performed on the antigravity-project backend
 
 ---
 
+## Cloud Run: MongoDB "Connection refused localhost:27017"
+
+If you see `Connection refused: localhost/127.0.0.1:27017` on Cloud Run, the app is using the default MongoDB URI instead of the one from GCP Secret Manager. Check:
+
+1. **Environment variable:** In Cloud Run → Edit & Deploy New Revision → Container → Environment variables, ensure:
+   - `SPRING_PROFILES_ACTIVE` = `prod` (or `dev`/`qa`/`uat`)
+
+2. **Secret exists:** In GCP Secret Manager, verify secret `webflux-mongodb-rest-prod` exists.
+
+3. **Secret content:** The secret must contain (properties format):
+   ```properties
+   spring.data.mongodb.uri=mongodb+srv://user:pass@cluster.mongodb.net/rewardsdb?retryWrites=true&w=majority
+   ```
+
+4. **Service account:** The Cloud Run service account needs role `roles/secretmanager.secretAccessor`.
+
+5. **Code fix applied:** `GcpSecretManagerConfig` was updated to run after config loaders (Ordered.LOWEST_PRECEDENCE) and to resolve the active profile more reliably. Rebuild and redeploy after pulling the fix.
+
+---
+
 ## Rollback
 
 If you need to revert:

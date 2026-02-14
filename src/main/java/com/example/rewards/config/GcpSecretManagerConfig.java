@@ -6,6 +6,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.context.event.ApplicationEnvironmentPreparedEvent;
 import org.springframework.context.ApplicationListener;
+import org.springframework.core.Ordered;
 import org.springframework.core.env.ConfigurableEnvironment;
 import org.springframework.core.env.PropertiesPropertySource;
 import org.springframework.core.env.PropertySource;
@@ -18,13 +19,21 @@ import java.util.Properties;
  * Configuration class to load secrets from GCP Secret Manager.
  * This replaces the Spring Cloud GCP Secret Manager auto-configuration
  * with a more explicit and recommended approach using the native GCP client.
+ *
+ * Uses Ordered.LOWEST_PRECEDENCE to run after config files are loaded, ensuring
+ * spring.profiles.active and active profiles are available.
  */
-public class GcpSecretManagerConfig implements ApplicationListener<ApplicationEnvironmentPreparedEvent> {
+public class GcpSecretManagerConfig implements ApplicationListener<ApplicationEnvironmentPreparedEvent>, Ordered {
 
     private static final Logger logger = LoggerFactory.getLogger(GcpSecretManagerConfig.class);
     private static final String SECRET_NAME_PREFIX = "webflux-mongodb-rest-";
     private static final String GCP_PROJECT_ID_PROPERTY = "gcp.secretmanager.project-id";
     private static final String GCP_SECRET_ENABLED_PROPERTY = "gcp.secretmanager.enabled";
+
+    @Override
+    public int getOrder() {
+        return Ordered.LOWEST_PRECEDENCE;
+    }
 
     @Override
     public void onApplicationEvent(ApplicationEnvironmentPreparedEvent event) {
@@ -37,20 +46,20 @@ public class GcpSecretManagerConfig implements ApplicationListener<ApplicationEn
             return;
         }
 
-        // Get active profile
-        String[] activeProfiles = environment.getActiveProfiles();
-        if (activeProfiles.length == 0) {
+        // Get active profile - with fallback for timing/ordering (run after config loaders)
+        String activeProfile = resolveActiveProfile(environment);
+        if (activeProfile == null || activeProfile.isEmpty()) {
             logger.debug("No active profile found. Skipping GCP Secret Manager.");
             return;
         }
-
-        String activeProfile = activeProfiles[0];
         
         // Skip local profile - it doesn't use GCP
         if ("local".equals(activeProfile)) {
             logger.debug("Local profile detected. Skipping GCP Secret Manager.");
             return;
         }
+
+        logger.debug("Using profile for GCP Secret Manager: {}", activeProfile);
 
         // Get GCP project ID
         String projectId = environment.getProperty(GCP_PROJECT_ID_PROPERTY);
@@ -75,6 +84,10 @@ public class GcpSecretManagerConfig implements ApplicationListener<ApplicationEn
                 environment.getPropertySources().addFirst(propertySource);
                 logger.info("Successfully loaded {} properties from GCP Secret Manager", 
                         secrets.size());
+                if (!secrets.containsKey("spring.data.mongodb.uri")) {
+                    logger.warn("Secret '{}' does not contain 'spring.data.mongodb.uri'. " +
+                            "MongoDB will use default (localhost:27017). Add the URI to the secret.", secretName);
+                }
             } else {
                 logger.warn("No secrets found or secret is empty: {}", secretName);
             }
@@ -128,6 +141,23 @@ public class GcpSecretManagerConfig implements ApplicationListener<ApplicationEn
                     "Please check your GCP credentials and IAM permissions.", secretName, projectId);
             throw new RuntimeException("Permission denied accessing secret: " + secretName, e);
         }
+    }
+
+    /**
+     * Resolves the active profile, with fallbacks for listener ordering.
+     * Runs with LOWEST_PRECEDENCE so config files (and spring.profiles.active) are loaded first.
+     */
+    private String resolveActiveProfile(ConfigurableEnvironment environment) {
+        String[] activeProfiles = environment.getActiveProfiles();
+        if (activeProfiles != null && activeProfiles.length > 0) {
+            return activeProfiles[0];
+        }
+        // Fallback: read spring.profiles.active directly (env var SPRING_PROFILES_ACTIVE or property)
+        String profile = environment.getProperty("spring.profiles.active");
+        if (profile != null && !profile.isEmpty()) {
+            return profile.split(",")[0].trim();
+        }
+        return null;
     }
 }
 
