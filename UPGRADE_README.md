@@ -1,4 +1,4 @@
-# Upgrade to Java 25, Spring Boot 4.0.2, and OpenAPI 3.1.0
+# Upgrade Guide: Java 25, Spring Boot 3.5.10, OpenAPI 3.1.0
 
 This document describes the upgrade performed on the antigravity-project backend and provides a testing checklist to ensure all functionality remains intact.
 
@@ -7,183 +7,175 @@ This document describes the upgrade performed on the antigravity-project backend
 ## Summary of Changes
 
 ### 1. Java Version
-- **Before:** Java 21
-- **After:** Java 25
-- **Impact:** Enables Java 25 features (pattern matching, virtual threads, structured concurrency). Ensure your CI/CD and local development use JDK 25.
+| Before | After |
+|--------|-------|
+| Java 21 | **Java 25** |
+
+- Updated `java.version`, `maven.compiler.source`, and `maven.compiler.target` in `pom.xml`
+- Updated Dockerfile build and runtime images to use Eclipse Temurin 25
+
+**Prerequisite:** Ensure JDK 25 is installed locally for development:
+```bash
+java -version
+# Should show: openjdk version "25" or similar
+```
 
 ### 2. Spring Boot Version
-- **Before:** 3.4.1
-- **After:** 4.0.2
-- **Impact:** Major version upgrade with modular architecture, Jackson 3, Spring Framework 7, Jakarta EE 11 baseline. See [Spring Boot 4.0 Migration Guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide) for full details.
+| Before | After |
+|--------|-------|
+| 3.4.1 | **3.5.10** |
 
-### 3. Swagger UI / OpenAPI
-- **Before:** springdoc-openapi 2.6.0 with OpenAPI 3.0
-- **After:** springdoc-openapi 3.0.1 with **OpenAPI 3.1.0**
-- **Configuration:** Added `springdoc.api-docs.version: openapi_3_1` in `application.yml`
-- **Impact:** OpenAPI 3.1.0 spec support (JSON Schema alignment, improved nullability). Swagger UI remains at `/swagger-ui.html`.
+- Spring Boot 3.5.10 includes bug fixes, dependency upgrades, and improved Java 25 support
+- All Spring Boot starters (webflux, validation, data-mongodb-reactive, actuator) are managed by the parent POM and updated automatically
+
+### 3. Swagger UI & OpenAPI
+| Component | Before | After |
+|-----------|--------|-------|
+| springdoc-openapi-starter-webflux-ui | 2.6.0 | **2.8.15** |
+| OpenAPI Specification | 3.0 (default) | **3.1.0** |
+
+- **springdoc-openapi 2.8.15** – Latest version compatible with Spring Boot 3.5.x; includes Swagger UI 5.31.0 and swagger-core 2.2.41
+- **OpenAPI 3.1.0** – Enabled via `springdoc.api-docs.version: openapi_3_1` in `application.yml`
+- OpenAPI 3.1.0 adds JSON Schema 2020-12 support, improved `oneOf`/`anyOf` handling, and webhook support
 
 ### 4. GCP Secret Manager
-- **Before:** google-cloud-secretmanager 2.7.0
-- **After:** google-cloud-secretmanager 2.38.0
-- **Impact:** Updated native client for compatibility with Java 25. **No code changes** – `GcpSecretManagerConfig` and `ApplicationListener<ApplicationEnvironmentPreparedEvent>` remain unchanged and compatible.
+| Before | After |
+|--------|-------|
+| google-cloud-secretmanager 2.7.0 | **2.80.0** |
 
-### 5. Test Dependencies (Spring Boot 4 Modular Structure)
-- **Before:** `spring-boot-starter-test` + `reactor-test`
-- **After:** `spring-boot-starter-webflux-test` + `spring-boot-starter-data-mongodb-reactive-test`
-- **Impact:** Aligns with Spring Boot 4’s modular test starters. Both bring `spring-boot-starter-test` transitively.
-- **Fallback:** If you encounter dependency resolution issues, replace with `spring-boot-starter-test` and `spring-boot-starter-test-classic` per the [Spring Boot 4 Migration Guide](https://github.com/spring-projects/spring-boot/wiki/Spring-Boot-4.0-Migration-Guide).
+- Updated to latest version with Java 25 compatibility
+- **No code changes** – `GcpSecretManagerConfig` and integration remain unchanged
+- API usage is backward compatible
 
-### 6. Docker
-- **Before:** `maven:3.9-eclipse-temurin-21`, `eclipse-temurin:21-jre-alpine`
-- **After:** `maven:3-eclipse-temurin-25-alpine`, `eclipse-temurin:25-jre-alpine`
-- **Impact:** Build and runtime images use Java 25.
-
----
-
-## What Was NOT Changed (Preserved Behavior)
-
-- **GCP Secret Manager integration** – Same `GcpSecretManagerConfig`, `spring.factories` registration, and secret loading flow
-- **MongoDB reactive** – Same `spring-boot-starter-data-mongodb-reactive` usage
-- **WebFlux routing** – Same `RewardRouter`, `ProjectRouter`, handlers, and functional endpoints
-- **OpenAPI config** – Same `OpenApiConfig` (server URLs, `APP_SERVER_URL`, `app.server.url`)
-- **Profiles** – Same `local`, `dev`, `qa`, `uat`, `prod` behavior
-- **Actuator** – Same health/info endpoints
+### 5. Docker
+| Stage | Before | After |
+|-------|--------|-------|
+| Build | maven:3.9-eclipse-temurin-21 | **maven:3.9-eclipse-temurin-25** |
+| Runtime | eclipse-temurin:21-jre-alpine | **eclipse-temurin:25-jre-alpine** |
 
 ---
 
-## Prerequisites for Testing
+## Files Modified
 
-1. **JDK 25** – Install and set `JAVA_HOME`:
-   ```bash
-   # macOS with SDKMAN
-   sdk install java 25-tem
-   sdk use java 25-tem
-   ```
+| File | Changes |
+|------|---------|
+| `pom.xml` | Spring Boot 3.5.10, Java 25, springdoc 2.8.15, google-cloud-secretmanager 2.80.0 |
+| `src/main/resources/application.yml` | Added `springdoc.api-docs.version: openapi_3_1` |
+| `src/main/java/com/example/rewards/config/OpenApiConfig.java` | Updated description text to "OpenAPI 3.1.0" |
+| `Dockerfile` | Java 25 base images for build and runtime |
 
-2. **Maven 3.9+** – Ensure Maven uses JDK 25:
-   ```bash
-   mvn -version
-   # Should show Java version 25
-   ```
+---
 
-3. **MongoDB** – Local MongoDB for `local` profile (unchanged)
+## What Was NOT Changed (Preserved)
 
-4. **GCP credentials** – For `dev`/`qa`/`uat`/`prod` profiles (unchanged)
+- **GCP Secret Manager integration** – `GcpSecretManagerConfig` unchanged; secrets still loaded from `webflux-mongodb-rest-{profile}`
+- **MongoDB Reactive** – Same configuration and repository usage
+- **API endpoints** – Rewards and Projects routers, handlers, services unchanged
+- **Environment profiles** – local, dev, qa, uat, prod behavior unchanged
+- **Actuator** – Health and info endpoints unchanged
+- **Cloud Run deployment** – `cloudbuild.yaml` unchanged; compatible with new image
 
 ---
 
 ## Testing Checklist
 
-### Build & Compile
-- [ ] `mvn clean compile` succeeds
-- [ ] `mvn clean package -DskipTests` succeeds
-- [ ] `mvn clean verify` (with tests) succeeds
+### Prerequisites
+- [ ] JDK 25 installed (`java -version`)
+- [ ] Maven 3.9+ (`mvn -version`)
+- [ ] MongoDB running (for local profile)
+- [ ] GCP credentials configured (for dev/qa/uat/prod profiles)
 
-### Local Profile (No GCP)
-- [ ] Start MongoDB locally
-- [ ] Run with `spring.profiles.active=local`
-- [ ] App starts without errors
-- [ ] Health: `GET http://localhost:8080/actuator/health` returns 200
-- [ ] Swagger UI: `http://localhost:8080/swagger-ui.html` loads
-- [ ] OpenAPI JSON: `http://localhost:8080/v3/api-docs` returns valid OpenAPI 3.1 spec
-- [ ] Rewards CRUD: `GET/POST/PUT/DELETE /api/rewards` work
-- [ ] Projects CRUD: `GET/POST/PUT/DELETE /api/projects` work
+### 1. Build Verification
+```bash
+cd antigravity-project/backend
+mvn clean package -DskipTests
+```
+- [ ] Build completes successfully
+- [ ] No dependency resolution errors
+- [ ] JAR created in `target/`
 
-### GCP Profile (dev/qa/uat/prod)
-- [ ] Set `GOOGLE_APPLICATION_CREDENTIALS` to a valid service account key
-- [ ] Run with `spring.profiles.active=dev` (or qa/uat/prod)
-- [ ] App starts and logs: `Successfully loaded N properties from GCP Secret Manager`
-- [ ] MongoDB connects using URI from Secret Manager
+### 2. Local Profile (No GCP)
+```bash
+mvn spring-boot:run -Dspring-boot.run.profiles=local
+```
+- [ ] Application starts without errors
+- [ ] MongoDB connection established
+- [ ] Health check: `curl http://localhost:8080/actuator/health` returns `{"status":"UP"}`
+- [ ] Swagger UI loads: http://localhost:8080/swagger-ui.html
+- [ ] OpenAPI JSON: http://localhost:8080/v3/api-docs – verify `"openapi": "3.1.0"` in response
+- [ ] Test Rewards API: `GET /api/rewards`, `POST /api/rewards`
+- [ ] Test Projects API: `GET /api/projects`, `POST /api/projects`
+
+### 3. GCP Secret Manager (dev/qa/uat/prod)
+```bash
+export GOOGLE_APPLICATION_CREDENTIALS="/path/to/your/service-account-key.json"
+mvn spring-boot:run -Dspring-boot.run.profiles=dev
+```
+- [ ] Application starts and loads secrets from GCP
+- [ ] Log shows: `Successfully loaded N properties from GCP Secret Manager`
+- [ ] MongoDB connects using URI from secret
+- [ ] Swagger UI and API endpoints work as in local profile
+
+### 4. Docker Build & Run
+```bash
+docker build -t antigravity-backend:test .
+docker run -p 8080:8080 -e SPRING_PROFILES_ACTIVE=local antigravity-backend:test
+```
+- [ ] Docker build completes (may need `--platform linux/amd64` on Apple Silicon)
+- [ ] Container starts and health check passes
+- [ ] API and Swagger UI accessible
+
+### 5. Cloud Run Deployment (if applicable)
+- [ ] Push to repository triggers Cloud Build
+- [ ] Build succeeds with Java 25 base image
+- [ ] Deploy new revision to Cloud Run
+- [ ] Service starts; check logs for GCP Secret Manager success
+- [ ] Swagger UI shows correct server URL (if `APP_SERVER_URL` or `app.server.url` configured)
 - [ ] All API endpoints respond correctly
-- [ ] Swagger UI shows correct server URL when `APP_SERVER_URL` or `app.server.url` is set
 
-### OpenAPI 3.1.0 Verification
-- [ ] `GET /v3/api-docs` returns JSON with `"openapi": "3.1.0"`
-- [ ] Swagger UI renders all endpoints
-- [ ] “Try it out” works for sample requests
-
-### Docker Build
-- [ ] `docker build -t antigravity-backend .` succeeds
-- [ ] `docker run -p 8080:8080 -e SPRING_PROFILES_ACTIVE=local antigravity-backend` starts
-- [ ] Health and API endpoints respond inside container
-
-### Cloud Run Deployment (If Applicable)
-- [ ] Cloud Build completes successfully
-- [ ] Cloud Run service deploys and starts
-- [ ] GCP Secret Manager secrets load for `prod` profile
-- [ ] Swagger UI accessible at Cloud Run URL
-- [ ] API requests succeed
+### 6. OpenAPI 3.1.0 Verification
+- [ ] Visit http://localhost:8080/v3/api-docs
+- [ ] Response includes `"openapi": "3.1.0"`
+- [ ] Swagger UI renders all endpoints correctly
+- [ ] "Try it out" works for POST/PUT requests
 
 ---
 
-## Considerations When Testing
+## Considerations & Known Items
 
-1. **Jackson 3** – Spring Boot 4 uses Jackson 3. If you have custom serializers/deserializers, review [Jackson 3 migration](https://github.com/FasterXML/jackson/wiki/Jackson-Release-3.0).
+### Java 25
+- Java 25 is GA (September 2025). Ensure your CI/CD and deployment environments support it.
+- If Cloud Build or other pipelines use a fixed Java version, update them to Java 25.
 
-2. **JUnit** – Spring Boot 4 uses JUnit 6. Existing JUnit 5 tests should still run; if you see issues, check JUnit 6 migration notes.
+### Maven Docker Image
+- If `maven:3.9-eclipse-temurin-25` is not available in your registry, try:
+  - `maven:3-eclipse-temurin-25`
+  - `maven:3-eclipse-temurin-25-alpine`
 
-3. **EnvironmentPostProcessor** – `GcpSecretManagerConfig` uses `ApplicationListener<ApplicationEnvironmentPreparedEvent>`, not `EnvironmentPostProcessor`, so no changes are required.
+### OpenAPI 3.1.0
+- Some older API clients or code generators may expect OpenAPI 3.0. If you encounter compatibility issues, you can revert to 3.0 by removing or changing:
+  ```yaml
+  springdoc:
+    api-docs:
+      version: openapi_3_1  # Remove this line to use default 3.0
+  ```
 
-4. **Docker base images** – If `maven:3-eclipse-temurin-25-alpine` or `eclipse-temurin:25-jre-alpine` are unavailable in your registry, switch to `eclipse-temurin:25` or another supported Java 25 image.
-
-5. **Cloud Build** – Ensure the Cloud Build environment uses a Java 25-capable image if building inside GCP.
-
----
-
-## Cloud Run: MongoDB "Connection refused localhost:27017"
-
-If you see `Connection refused: localhost/127.0.0.1:27017` on Cloud Run, the app is not getting the MongoDB URI. The app now supports **three** ways to provide it:
-
-### Option A: Cloud Run "Reference a secret" (Recommended)
-
-1. In GCP Secret Manager, create secret `webflux-mongodb-rest-prod` with value (properties format):
-   ```properties
-   spring.data.mongodb.uri=mongodb+srv://user:pass@cluster.mongodb.net/rewardsdb?retryWrites=true&w=majority
-   app.environment=production
-   ```
-
-2. In Cloud Run → Variables & Secrets → **Secrets exposed as environment variables**:
-   - Name: `backend-prod-secret` (auto-detected by the app)
-   - Secret: `webflux-mongodb-rest-prod`
-   - Version: `latest`
-
-3. Set `SPRING_PROFILES_ACTIVE` = `prod` in Environment variables.
-
-### Option B: Direct environment variable
-
-Set in Cloud Run → Environment variables:
-- Name: `SPRING_DATA_MONGODB_URI` (or `MONGODB_URI`)
-- Value: `mongodb+srv://user:pass@cluster.mongodb.net/rewardsdb?retryWrites=true&w=majority`
-
-**Note:** If the password contains `$`, `#`, or other special characters, use Option A (secret) to avoid escaping issues.
-
-### Option C: GCP Secret Manager API
-
-The app loads from the API when `gcp.secretmanager.enabled=true` and profile is not `local`. Ensure:
-- `SPRING_PROFILES_ACTIVE` = `prod`
-- Secret `webflux-mongodb-rest-prod` exists with `spring.data.mongodb.uri`
-- Cloud Run service account has `roles/secretmanager.secretAccessor`
+### GCP Secret Manager
+- No changes to secret structure or naming. Existing secrets (`webflux-mongodb-rest-dev`, etc.) work as before.
+- Service account permissions unchanged.
 
 ---
 
-## Rollback
+## Rollback (If Needed)
 
-If you need to revert:
+To rollback to the previous versions, revert the following in `pom.xml`:
+- Spring Boot: `3.4.1`
+- Java: `21`
+- springdoc-openapi-starter-webflux-ui: `2.6.0`
+- google-cloud-secretmanager: `2.7.0`
 
-1. Restore `pom.xml` from version control (Java 21, Spring Boot 3.4.1, springdoc 2.6.0, google-cloud-secretmanager 2.7.0).
-2. Remove `springdoc.api-docs.version: openapi_3_1` from `application.yml`.
-3. Restore `Dockerfile` to use Java 21 images.
-4. Restore test dependencies to `spring-boot-starter-test` and `reactor-test`.
+And in `Dockerfile`:
+- Build: `maven:3.9-eclipse-temurin-21`
+- Runtime: `eclipse-temurin:21-jre-alpine`
 
----
-
-## File Changes Summary
-
-| File | Changes |
-|------|---------|
-| `pom.xml` | Spring Boot 4.0.2, Java 25, springdoc 3.0.1, google-cloud-secretmanager 2.38.0, modular test starters |
-| `application.yml` | Added `springdoc.api-docs.version: openapi_3_1` |
-| `Dockerfile` | Java 25 base images |
-| `UPGRADE_README.md` | New file – this document |
-
-No Java source files were modified. GCP integration, routers, handlers, and configuration remain unchanged.
+Remove `springdoc.api-docs.version: openapi_3_1` from `application.yml` if you want OpenAPI 3.0.

@@ -1,6 +1,6 @@
 spring:
   profiles:
-    active: prod
+    active: local
   main:
     web-application-type: reactive
   data:
@@ -12,10 +12,10 @@ spring:
       uuid-representation: standard
 
 # GCP Secret Manager Configuration
-# Supports: 1) GCP Secret Manager API 2) Cloud Run secret-as-env-var 3) Direct env vars
+# Secrets are loaded programmatically via GcpSecretManagerConfig
 # Secret names follow pattern: webflux-mongodb-rest-{profile}
-# For Cloud Run "Reference a secret": set env var name to backend-{profile}-secret (auto-detected)
-# Or set gcp.secretmanager.cloudrun-secret-env-var=YOUR_ENV_VAR_NAME
+# Example: webflux-mongodb-rest-dev, webflux-mongodb-rest-prod
+# All configuration values (including MongoDB URI) are loaded from GCP Secret Manager
 gcp:
   secretmanager:
     enabled: true  # Enabled for all non-local profiles

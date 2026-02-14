@@ -57,7 +57,7 @@ public class OpenApiConfig {
       .info(new Info()
         .title("Rewards API")
         .version("1.0.0")
-        .description("This is a sample Rewards Server based on the OpenAPI 3.0 specification. " +
+        .description("This is a sample Rewards Server based on the OpenAPI 3.1.0 specification. " +
           "You can find out more about Swagger at [https://swagger.io](https://swagger.io). " +
           "This API allows you to manage rewards for users with full CRUD operations.")
         .contact(new Contact()
