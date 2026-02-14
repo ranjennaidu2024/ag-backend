@@ -1,10 +1,10 @@
 # WebFlux MongoDB Rewards API
 
-Reactive Spring Boot WebFlux application (Boot 3.4.1) with MongoDB, OpenAPI, and GCP Secret Manager integration.
+Reactive Spring Boot WebFlux application (Boot 4.0.2) with MongoDB, OpenAPI 3.1.0, and GCP Secret Manager integration.
 
 ## Prerequisites
 
-- JDK 21 or higher
+- JDK 25 or higher
 - Maven 3.9+
 - MongoDB (for local development)
 - Google Cloud Project with billing enabled (for cloud environments)
@@ -384,13 +384,15 @@ src/main/java/com/example/rewards/
 
 ## Technology Stack
 
-- **Spring Boot**: 3.4.1
-- **Java**: 21
+- **Spring Boot**: 4.0.2
+- **Java**: 25
 - **Spring WebFlux**: Reactive web framework
 - **MongoDB Reactive**: Reactive MongoDB driver
-- **GCP Secret Manager**: Native client (2.7.0)
-- **SpringDoc OpenAPI**: 2.6.0 (Swagger UI)
+- **GCP Secret Manager**: Native client (2.38.0)
+- **SpringDoc OpenAPI**: 3.0.1 (Swagger UI, OpenAPI 3.1.0)
 - **Maven**: Build tool
+
+> **Upgrade notes:** See [UPGRADE_README.md](UPGRADE_README.md) for the upgrade from Java 21 / Spring Boot 3.4.1 and testing checklist.
 
 ---
 
@@ -789,7 +791,7 @@ Swagger UI provides an interactive interface to test your API endpoints directly
 - Check **"Cloud Build"** > **"History"** for error details
 - Ensure `Dockerfile` is in the root of your project
 - Verify `pom.xml` has all required dependencies
-- Check that Java 21 is specified in Dockerfile
+- Check that Java 25 is specified in Dockerfile
 
 #### Application Not Starting
 - Check **"Cloud Run"** > **"LOGS"** for error messages

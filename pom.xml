@@ -6,7 +6,7 @@
   <parent>
     <groupId>org.springframework.boot</groupId>
     <artifactId>spring-boot-starter-parent</artifactId>
-    <version>3.4.1</version>
+    <version>4.0.2</version>
     <relativePath/>
   </parent>
   
@@ -18,10 +18,10 @@
   <packaging>jar</packaging>
 
   <properties>
-    <java.version>21</java.version>
-    <maven.compiler.source>21</maven.compiler.source>
-    <maven.compiler.target>21</maven.compiler.target>
-    <google-cloud-secretmanager.version>2.7.0</google-cloud-secretmanager.version>
+    <java.version>25</java.version>
+    <maven.compiler.source>25</maven.compiler.source>
+    <maven.compiler.target>25</maven.compiler.target>
+    <google-cloud-secretmanager.version>2.38.0</google-cloud-secretmanager.version>
   </properties>
 
   <dependencies>
@@ -40,7 +40,7 @@
     <dependency>
       <groupId>org.springdoc</groupId>
       <artifactId>springdoc-openapi-starter-webflux-ui</artifactId>
-      <version>2.6.0</version>
+      <version>3.0.1</version>
     </dependency>
     <dependency>
       <groupId>org.springframework.boot</groupId>
@@ -52,20 +52,15 @@
       <artifactId>google-cloud-secretmanager</artifactId>
       <version>${google-cloud-secretmanager.version}</version>
     </dependency>
+    <!-- Spring Boot 4 modular test starters (replaces spring-boot-starter-test) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
-      <artifactId>spring-boot-starter-test</artifactId>
+      <artifactId>spring-boot-starter-webflux-test</artifactId>
       <scope>test</scope>
-      <exclusions>
-        <exclusion>
-          <groupId>org.junit.vintage</groupId>
-          <artifactId>junit-vintage-engine</artifactId>
-        </exclusion>
-      </exclusions>
     </dependency>
     <dependency>
-      <groupId>io.projectreactor</groupId>
-      <artifactId>reactor-test</artifactId>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-data-mongodb-reactive-test</artifactId>
       <scope>test</scope>
     </dependency>
   </dependencies>
