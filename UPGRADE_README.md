@@ -132,21 +132,37 @@ This document describes the upgrade performed on the antigravity-project backend
 
 ## Cloud Run: MongoDB "Connection refused localhost:27017"
 
-If you see `Connection refused: localhost/127.0.0.1:27017` on Cloud Run, the app is using the default MongoDB URI instead of the one from GCP Secret Manager. Check:
+If you see `Connection refused: localhost/127.0.0.1:27017` on Cloud Run, the app is not getting the MongoDB URI. The app now supports **three** ways to provide it:
 
-1. **Environment variable:** In Cloud Run → Edit & Deploy New Revision → Container → Environment variables, ensure:
-   - `SPRING_PROFILES_ACTIVE` = `prod` (or `dev`/`qa`/`uat`)
+### Option A: Cloud Run "Reference a secret" (Recommended)
 
-2. **Secret exists:** In GCP Secret Manager, verify secret `webflux-mongodb-rest-prod` exists.
-
-3. **Secret content:** The secret must contain (properties format):
+1. In GCP Secret Manager, create secret `webflux-mongodb-rest-prod` with value (properties format):
    ```properties
    spring.data.mongodb.uri=mongodb+srv://user:pass@cluster.mongodb.net/rewardsdb?retryWrites=true&w=majority
+   app.environment=production
    ```
 
-4. **Service account:** The Cloud Run service account needs role `roles/secretmanager.secretAccessor`.
+2. In Cloud Run → Variables & Secrets → **Secrets exposed as environment variables**:
+   - Name: `backend-prod-secret` (auto-detected by the app)
+   - Secret: `webflux-mongodb-rest-prod`
+   - Version: `latest`
 
-5. **Code fix applied:** `GcpSecretManagerConfig` was updated to run after config loaders (Ordered.LOWEST_PRECEDENCE) and to resolve the active profile more reliably. Rebuild and redeploy after pulling the fix.
+3. Set `SPRING_PROFILES_ACTIVE` = `prod` in Environment variables.
+
+### Option B: Direct environment variable
+
+Set in Cloud Run → Environment variables:
+- Name: `SPRING_DATA_MONGODB_URI` (or `MONGODB_URI`)
+- Value: `mongodb+srv://user:pass@cluster.mongodb.net/rewardsdb?retryWrites=true&w=majority`
+
+**Note:** If the password contains `$`, `#`, or other special characters, use Option A (secret) to avoid escaping issues.
+
+### Option C: GCP Secret Manager API
+
+The app loads from the API when `gcp.secretmanager.enabled=true` and profile is not `local`. Ensure:
+- `SPRING_PROFILES_ACTIVE` = `prod`
+- Secret `webflux-mongodb-rest-prod` exists with `spring.data.mongodb.uri`
+- Cloud Run service account has `roles/secretmanager.secretAccessor`
 
 ---
 
